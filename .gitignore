@@ -1,0 +1,6 @@
+01_log_analyzer/01_advanced_basics
+env/
+01_log_analyzer/lastupdate
+01_log_analyzer/testing.py
+01_log_analyzer/reports/
+*/__pycache__
