@@ -1,64 +1,55 @@
 import unittest
 import os
-import log_analyzer
+import log_analyzer as la
+from collections import namedtuple
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
-log_folders = os.path.join(base_dir,'test_sources', 'log_folders')
-test_logs = os.path.join(log_folders, 'test_logs')
-configs = os.path.join(base_dir,'test_sources', 'configs')
-
+configs = './test_sources/configs'
+log_folders = './test_sources/log_folders'
+test_logs = './test_sources/log_folders/test_logs'
 
 class TestFunctions(unittest.TestCase):
 
+    def setUp(self):
+        self.err_level = 0.2
+        args = namedtuple('namespace_test', 'config')
+        self.test_args = args(f'{configs}/config.json')
+        self.log_folder_1 = f'{log_folders}/log_folder_1'  # Choosing between diff. extensions and formatting
+        self.log_folder_2 = f'{log_folders}/log_folder_2'  # Choosing the latest log
+        self.log_folder_3 = f'{log_folders}/log_folder_3'  # Check folder without required logs
+        self.test_log_1 = f'{test_logs}/nginx-access-ui.log-00000001'  # Normal rows
+        self.test_log_2 = f'{test_logs}/nginx-access-ui.log-00000002'  # 2/10 rows with unparsed request
+        self.test_log_3 = f'{test_logs}/nginx-access-ui.log-00000003'  # 3/10 rows with unparsed time
+        self.test_log_4 = f'{test_logs}/nginx-access-ui.log-00000004'  # Empty log
+        self.test_log_5 = f'{test_logs}/nginx-access-ui.log-00000005'  # Normal log
+
     def test_get_last_log(self):
-        print('Testing log acquiring from folder')
-        log_folder_1 = os.path.join(log_folders, 'log_folder_1')  # Choosing between diff. extensions and formatting
-        log_folder_2 = os.path.join(log_folders, 'log_folder_2')  # Choosing the latest log
-        log_folder_3 = os.path.join(log_folders, 'log_folder_3')  # Check folder without required logs
-        self.assertEqual(log_analyzer.get_last_log(log_folder_1)[1], 'nginx-access-ui.log-20170610.gz')
-        self.assertEqual(log_analyzer.get_last_log(log_folder_2)[1], 'nginx-access-ui.log-20170611')
-        self.assertIs(log_analyzer.get_last_log(log_folder_3), None)
+        self.assertEqual(la.get_last_log(self.log_folder_1)[1], 'nginx-access-ui.log-20170610.gz')
+        self.assertEqual(la.get_last_log(self.log_folder_2)[1], 'nginx-access-ui.log-20170611')
+        self.assertRaises(Exception, la.get_last_log, self.log_folder_3)
 
     def test_parse(self):
-        test_log_1 = os.path.join(test_logs, 'nginx-access-ui.log-00000001')  # Normal rows
-        test_log_2 = os.path.join(test_logs, 'nginx-access-ui.log-00000002')  # 2/10 rows with unparsed request
-        test_log_3 = os.path.join(test_logs, 'nginx-access-ui.log-00000003')  # 3/10 rows with unparsed time
-        test_log_4 = os.path.join(test_logs, 'nginx-access-ui.log-00000004')  # Empty log
-
-        self.assertEqual(len(list(log_analyzer.parse(test_log_1))), 10)
-        self.assertRaises(Exception, log_analyzer.parse(test_log_2))
-        self.assertRaises(Exception, log_analyzer.parse(test_log_3))
-        self.assertRaises(Exception, log_analyzer.parse(test_log_4))
-
+        self.assertEqual(len(list(la.parse(self.test_log_1, self.err_level))), 10)
+        self.assertRaises(Exception, la.parse, (self.test_log_2, self.err_level))
+        self.assertRaises(Exception, la.parse, (self.test_log_3, self.err_level))
+        self.assertRaises(Exception, la.parse, (self.test_log_4, self.err_level))
 
     def test_analyze(self):
-        test_log_1 = os.path.join(test_logs, 'nginx-access-ui.log-00000005')  # Normal log
-        parsed_log_1 = log_analyzer.parse(test_log_1)
-        data_1 = log_analyzer.analyze(*parsed_log_1)
-
-        test_log_2 = os.path.join(test_logs, 'nginx-access-ui.log-00000004')  # Empty log
-        self.assertRaises(Exception, log_analyzer.parse(test_log_2))
-
+        data_1 = la.analyze(la.parse(self.test_log_5, self.err_level))
         self.assertEqual(data_1[0]['time_max'], 0.5)
         self.assertEqual(data_1[0]['count'], 5)
         self.assertEqual(data_1[0]['count_perc'], '50.0%')
         self.assertEqual(data_1[0]['time_med'], 0.3)
         self.assertEqual(data_1[0]['time_perc'], '50.0%')
 
-
-
     def test_read_configs(self):
-        # Get configs if external are not provided
-        args = log_analyzer.parse_args()
-        config_default = log_analyzer.read_config(args)
+        config_default = la.read_config(self.test_args)
         config_default_expected = {
-            'REPORT_SIZE': 1000,
-            'REPORT_DIR': os.path.join(base_dir, 'reports'),
-            'LOG_DIR': os.path.join(base_dir, 'log_dir'),
-            'APP_LOG': None,
-            'CACHE': os.path.join(base_dir, 'output.json')}
+            'REPORT_SIZE': 100,
+            'REPORT_DIR': './reports',
+            'LOG_DIR': '/var/log/nginx',
+            'APP_LOG': './app.log',
+            'ERROR_LEVEL': 0.2}
         self.assertEqual(config_default, config_default_expected)
-
 
 
 if __name__ == '__main__':

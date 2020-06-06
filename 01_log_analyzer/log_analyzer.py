@@ -15,23 +15,27 @@ from statistics import median
 from collections import namedtuple
 import argparse
 
+Logdata = namedtuple('Log', 'path name date')
+
+
 def create_app_logger(logpath):
     fmt, dfmt = '[%(asctime)s] %(levelname).1s %(message)s', '%Y.%m.%d %H:%M:%S'
     logging.basicConfig(filename=logpath, format=fmt, datefmt=dfmt, level=logging.INFO)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', help='Path to config')
     return parser.parse_args()
 
-def read_config(args):
-    # Set default config in case config is not provided
-    config = {'REPORT_SIZE': 1000, 'APP_LOG': None}
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    config['LOG_DIR'], config['REPORT_DIR'], config['CACHE'] = map(lambda x: os.path.join(base_dir, x),
-                                                                   ['log_dir', 'reports', 'output.json'])
 
-    # Read config if it is provided
+def read_config(args):
+    config = {'REPORT_SIZE': 1000,
+              'ERROR_LEVEL': 0.2,
+              'APP_LOG': None,
+              'REPORT_DIR': './reports',
+              'LOG_DIR': '/var/log/nginx'}
+
     if args.config is not None:
         with open(args.config, 'r') as c:
             for k, v in json.load(c).items():
@@ -39,37 +43,35 @@ def read_config(args):
                     config[k] = v
     return config
 
+
 def check_config(config):
-    # Create report directory if it does not exist
     if not os.path.isdir(config['REPORT_DIR']):
         os.mkdir(config['REPORT_DIR'])
-    # Check if log folder exist
+
     if not os.path.isdir(config['LOG_DIR']):
         f = config['LOG_DIR']
         raise Exception(f'Log folder not found: \"{f}\"')
 
 
-def get_last_log(dirpath, log_type='nginx-access-ui'):
-    Logdata = namedtuple('Log', 'path name date')
-    try:
-        files = list(os.walk(dirpath))[0][2]
-        logs = ([s for s in files if re.compile(r'(\.log-\d{8}\.gz$|\.log-\d{8}$)').search(s)])
-        log = max([s for s in logs if log_type in s])
-        log = (log, log.split('.')[1].split('-')[1])
-        # If exist .gz and plain text log with same date - gz log is returned
-    except ValueError:  # If log_type logs does not exist in folder
-        logging.error(f'{log_type} logs not found in {dirpath}')
-        return None
-    logging.info(f'Got log: {log[0]} from {dirpath}')
-    return Logdata(os.path.join(dirpath, log[0]), log[0], log[1])
+def get_last_log(dir_path):
+    files, pat = os.listdir(dir_path), re.compile(r'^nginx-access-ui\.log-\d{8}(\.gz$|$)')
+    logs = [f for f in files if pat.search(f)]
+    if len(logs) == 0:
+        msg = f'Logs not found in {dir_path}'
+        logging.error(msg)
+        raise Exception(msg)
+    log = max(logs)  # If exist .gz and plain text log with same date - gz log is returned
+    log = (log, log.split('.')[1].split('-')[1])
+    logging.info(f'Got log: {log[0]} from {dir_path}')
+    return Logdata(f'{dir_path}/{log[0]}', log[0], log[1])
 
 
 def is_parsed(log_date, report_dir):
-    return os.path.isfile(os.path.join(report_dir, f'report-{log_date}.html'))
+    return os.path.isfile(f'{report_dir}/report-{log_date}.html')
 
 
-def parse(log):
-    err_level, total_rows, unparsed_rows = 0.2, 0, 0
+def parse(log, err_level):
+    total_rows, unparsed_rows = 0, 0
     f = gzip.open(log, 'rb') if log.endswith('gz') else open(log, 'rb')
     for line in f:
         total_rows += 1
@@ -97,8 +99,7 @@ def parse(log):
         raise Exception(msg)
 
 
-def analyze(*gen):
-    # Aggregate absolute metrics by url
+def analyze(gen):
     data = {'report': {}, 'total_time': 0.0, 'count_total': 0}
     for log_row in gen:
         url, t = log_row
@@ -117,7 +118,6 @@ def analyze(*gen):
             if t > data['report'][url]['time_max']:
                 data['report'][url]['time_max'] = t
 
-    # Calculate averages
     rows = []
     for k, v in data['report'].items():
         v['time_perc'] = v['time_sum'] / data['total_time']
@@ -125,7 +125,6 @@ def analyze(*gen):
         v['time_med'] = median(v['durations'])
         del v['durations']
 
-        # Formatting
         for metric in v:
             if metric in ['count_perc', 'time_perc']:
                 v[metric] = '{:.1%}'.format(v[metric])
@@ -137,8 +136,7 @@ def analyze(*gen):
 
 
 def create_report(data, report_dir, date):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    template, report = os.path.join(base_dir, 'report.html'), os.path.join(report_dir, f'report-{date}.html')
+    template, report = './report.html', f'{report_dir}/report-{date}.html'
     if not os.path.isfile(template):
         msg = 'report.html TEMPLATE not found. Report was not created'
         logging.error(msg)
@@ -149,49 +147,29 @@ def create_report(data, report_dir, date):
 
 
 def main(args):
-    # Set config
     config = read_config(args)
     try:
         check_config(config)
     except Exception as e:
         sys.exit(f'Unable to get config. {e}')
 
-    # Initialize logging (have to do here do because need app_log path from config)
     create_app_logger(config['APP_LOG'])
+    log, log_name, log_date = get_last_log(config['LOG_DIR'])
 
-    # Get and analyze log data
-    log_data = get_last_log(config['LOG_DIR'])
-    cache = config['CACHE']
-    if log_data is not None:
-        log, log_name, log_date = log_data
-        if not is_parsed(log_date, config['REPORT_DIR']):
-            logging.info(f'Parsing {log}')
-            try:
-                parsed_log = parse(log)
-            except Exception as e:
-                sys.exit(e)
-            logging.info(f'Analysis is launched')
-            data = analyze(*parsed_log)
-            logging.info(f'Analysis is finished')
-            with open(cache, 'w') as c:
-                logging.info(f'Saving results...')
-                c.write(json.dumps(data))
-        else:
-            logging.info(f'Log was already parsed. Loading cache.')
-            if os.path.isfile(cache):
-                with open(cache, 'r') as c:
-                    data = json.load(c)
-            else:
-                logging.error('Cached data not found. Delete last_update file to parse log.')
-                data = None
-
-        if data is None:  # None returns from analyze() if many rows are not parsed or cached data not found
-            sys.exit('Quality data is not provided')
-        data = sorted(data, key=lambda x: x['count'], reverse=True)[0:int(config['REPORT_SIZE'])]  # In case size in config as str
+    if is_parsed(log_date, config['REPORT_DIR']):
+        logging.info(f'Log was already parsed and analyzed.')
+    else:
+        logging.info(f'Parsing {log}')
         try:
-            create_report(data, config['REPORT_DIR'], log_date)
+            parsed_log = parse(log, config['ERROR_LEVEL'])
         except Exception as e:
-            logging.error(f'Failed to create report for {log}: {e}')
+            sys.exit(e)
+        logging.info(f'Analysis is launched')
+        data = analyze(parsed_log)
+        logging.info(f'Analysis is finished')
+
+        data = sorted(data, key=lambda x: x['count'], reverse=True)[0:int(config['REPORT_SIZE'])]  # If SIZE is str
+        create_report(data, config['REPORT_DIR'], log_date)
 
 
 if __name__ == "__main__":
