@@ -1,8 +1,13 @@
 01_log_analyzer/01_advanced_basics
 env/
+venv/
 01_log_analyzer/lastupdate
 01_log_analyzer/testing.py
 01_log_analyzer/reports/
 */__pycache__
 *.gz
 feedback.txt
+03_score_api/03_oop/
+03_score_api/testing.py
+*.log
+*.pyc
