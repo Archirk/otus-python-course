@@ -1,8 +1,7 @@
 import random
 
 
-def get_score(store=None, phone=None, email=None, birthday=None, gender=None, first_name=None, last_name=None):
-    #  According to task phone and email also are not required and nullable
+def get_score(store, phone, email, birthday=None, gender=None, first_name=None, last_name=None):
     score = 0
     if phone:
         score += 1.5
@@ -15,6 +14,6 @@ def get_score(store=None, phone=None, email=None, birthday=None, gender=None, fi
     return score
 
 
-def get_interests(cid, store=None):
+def get_interests(store, cid):
     interests = ["cars", "pets", "travel", "hi-tech", "sport", "music", "books", "tv", "cinema", "geek", "otus"]
     return random.sample(interests, 2)

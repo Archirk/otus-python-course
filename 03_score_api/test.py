@@ -36,7 +36,7 @@ class TestSuite(unittest.TestCase):
     def test_empty_request(self):
         _, code = self.get_response({})
         self.assertEqual(api.INVALID_REQUEST, code)
-#
+
     @cases([
         {"account": "horns&hoofs", "login": "h&f", "method": "online_score", "token": "", "arguments": {}},
         {"account": "horns&hoofs", "login": "h&f", "method": "online_score", "token": "sdd", "arguments": {}},
@@ -78,6 +78,7 @@ class TestSuite(unittest.TestCase):
         response, code = self.get_response(request)
         self.assertEqual(api.INVALID_REQUEST, code, arguments)
         self.assertTrue(len(response))
+#
     @cases([
         {"phone": "79175002040", "email": "stupnikov@otus.ru"},
         {"phone": 79175002040, "email": "stupnikov@otus.ru"},
