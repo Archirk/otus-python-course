@@ -51,7 +51,6 @@ class Field(object):
     def __repr__(self):
         return str(self.value)
 
-
     def check_requirements(self):
         if self.required and self.value is None:
             msg = 'Value for field \'%s\' is required, received \'%s\' instead ' % (self.name, self.value)
@@ -59,20 +58,18 @@ class Field(object):
         elif not self.nullable and not isinstance(self.value, int) and self.value is not None and len(self.value) == 0:
             msg = 'Value for field \'%s\' can not be empty, received \'%s\' instead ' % (self.name, self.value)
             raise ValidationError(msg)
-        return True
 
+    @abc.abstractmethod
     def check_type(self):
-        raise RuntimeError('check_type function is not defined for %s' % self.__class__.__name__)
+        raise NotImplementedError('check_type function is not defined for %s' % self.__class__.__name__)
 
-    def is_valid(self):
-        if self.check_requirements() and self.check_type():
-            return True
-        return False
+    def validate(self):
+        self.check_requirements()
+        self.check_type()
 
     @property
     def is_empty(self):
         return not isinstance(self.value, int) and (self.value is None or len(self.value) == 0)
-
 
 
 class CharField(Field):
@@ -85,7 +82,6 @@ class CharField(Field):
             raise ValidationError(msg)
 
 
-
 class ArgumentsField(Field):
     def check_type(self):
         accepted = (dict, list, tuple)
@@ -94,90 +90,84 @@ class ArgumentsField(Field):
                                                                                                        self.value)
             raise ValidationError(msg)
 
+
 class EmailField(CharField):
-    def is_valid(self):
+    def validate(self):
         if not self.is_empty:
             if '@' not in str(self.value):
                 msg = 'Value for field \'%s\' must be an email string, received \'%s\' instead' % (
-                self.name, self.value)
+                    self.name, self.value)
                 raise ValidationError(msg)
-        return True
 
 
 class PhoneField(CharField):
-    def is_valid(self):
+    def validate(self):
         l, c = 11, '7'
         if not self.is_empty:
             if len(str(self.value)) != l or str(self.value)[0] != c:
                 msg = '''Value for field \'%s\' must be an %s symbols long starting with %s, received \'%s\' instead''' \
                       % (self.name, l, c, self.value)
                 raise ValidationError(msg)
-        return True
 
 
 class DateField(CharField):
-    def is_valid(self):
+    def validate(self):
         if not self.is_empty:
             try:
                 datetime.datetime.strptime(self.value, '%d.%m.%Y')
                 return True
             except:
                 msg = 'Value for field \'%s\' must be in format dd.mm.yyyy, received \'%s\' instead' % (
-                self.name, self.value)
+                    self.name, self.value)
                 raise ValidationError(msg)
-        return True
 
 
 class BirthDayField(DateField):
-    def is_valid(self):
+    def validate(self):
         age_limit = 70
         if not self.is_empty:
-            super(BirthDayField, self).is_valid()  # Check if date in expected format
+            super(BirthDayField, self).validate()  # Check if date in expected format
             birth_date, today_date = self.value, datetime.datetime.today().strftime('%d.%m.%Y')
             bday, bmonth, byear = map(int, birth_date.split('.'))
             day, month, year = map(int, today_date.split('.'))
             msg = 'Your age must be equal or below %s' % age_limit
-            if year-byear > age_limit:
+            if year - byear > age_limit:
                 raise ValidationError(msg)
-            elif year-byear == 70:
+            elif year - byear == 70:
                 if bmonth > month:
                     raise ValidationError(msg)
                 elif bmonth == month:
                     if bday > day:
                         raise ValidationError(msg)
-        return True
 
 
 class GenderField(CharField):
-    def is_valid(self):
+    def validate(self):
         accepted = (0, 1, 2, '', None)
         if self.value not in accepted:
             msg = '''Value for field \'%s\' must be one of (%s), received %s instead''' \
                   % (self.name, ', '.join([str(i) for i in accepted]), self.value)
             raise ValidationError(msg)
 
-        return True
-
 
 class ClientIDsField(ArgumentsField):
-    def is_valid(self):
+    def validate(self):
         if self.is_empty:
             raise ValidationError('Value for field \'%s\'can not be empty.' % self.name)
         elif not isinstance(self.value, list):
-            raise ValidationError('Value for field \'%s\'can must be an array' % self.name)
+            raise ValidationError('Value for field \'%s\' must be an array' % self.name)
         for i in self.value:
             if not isinstance(i, int):
                 raise ValidationError('Array for field \'%s\'can must contain only integers' % self.name)
-        return True
 
 
 class Request(object):
     def __init__(self, request):
+        self.available_fields = {'first_name', 'last_name', 'phone', 'email', 'birthday', 'gender', 'account',
+                                 'token', 'arguments', 'method', 'client_ids', 'date', 'login'}
         self.request = request
         self.errors = []
         self.fields = self.get_class_fields()
-        self.read_arguments(request)
-
 
     def read_arguments(self, arguments):
         for k, v in self.fields.items():
@@ -188,23 +178,26 @@ class Request(object):
                 self.fields[k].value = None
                 setattr(self, k, None)
             try:
-                self.fields[k].is_valid()
+                self.fields[k].validate()
             except ValidationError as e:
                 self.errors.append(e.message)
 
 
-    @classmethod
-    def get_class_fields(cls):
-        return {k: v for k, v in cls.__dict__.items() if isinstance(v, Field)}
+    def get_class_fields(self):
+        fields = {}
+        for i in dir(self):
+            if i in self.available_fields:
+                attr = getattr(self, i)
+                if isinstance(attr, Field):
+                    fields[i] = attr
+        return fields
 
     def is_valid(self):
         return len(self.errors) == 0
 
     @property
     def is_empty(self):
-        if len(self.request) == 0:
-            return True
-        return False
+        return not self.request
 
 
 class ClientsInterestsRequest(Request):
@@ -251,7 +244,6 @@ class OnlineScoreRequest(Request):
         self.errors.append('Arguments must have at least one valid pair f-l, p-e, g-b')
         return False
 
-
     @property
     def has(self):
         return {'has': [k for k, v in self.request.items() if v != '']}
@@ -277,7 +269,6 @@ class MethodRequest(Request):
 
 
 def check_auth(request):
-    # print request.login,type(request.login), request.account,type(request.account)
     if request.is_admin:
         digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
     else:
@@ -292,7 +283,7 @@ def scoring_handler(request, ctx, store):
     actions = {'online_score': OnlineScoreRequest,
                'clients_interests': ClientsInterestsRequest}
     sr = actions[method](arguments)
-
+    sr.read_arguments(arguments)
     if sr.is_valid() and not sr.is_empty:
         if method == 'online_score':
             ctx.update(sr.has)
@@ -309,7 +300,9 @@ def scoring_handler(request, ctx, store):
 
 def method_handler(request, ctx, store):
     response, code = None, None
-    mr = MethodRequest(request['body'])
+    arguments = request['body']
+    mr = MethodRequest(arguments)
+    mr.read_arguments(arguments)
     if mr.is_empty:
         response, code = mr.errors, INVALID_REQUEST
         logging.error('%s - %s' % (code, response))
@@ -323,6 +316,7 @@ def method_handler(request, ctx, store):
         response, code = scoring_handler(mr, ctx, store)
         logging.info('%s - %s' % (code, response))
     return response, code
+
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
