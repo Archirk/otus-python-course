@@ -115,7 +115,6 @@ class DateField(CharField):
         if not self.is_empty:
             try:
                 datetime.datetime.strptime(self.value, '%d.%m.%Y')
-                return True
             except:
                 msg = 'Value for field \'%s\' must be in format dd.mm.yyyy, received \'%s\' instead' % (
                     self.name, self.value)
