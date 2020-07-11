@@ -180,14 +180,12 @@ class Request(object):
             except ValidationError as e:
                 self.errors.append(e.message)
 
-
     def get_class_fields(self):
         fields = {}
-        for i in dir(self):
-            if i in self.available_fields:
-                attr = getattr(self, i)
-                if isinstance(attr, Field):
-                    fields[i] = attr
+        for attr_name in dir(self):
+            value = getattr(self, attr_name, None)
+            if isinstance(value, Field):
+                fields[attr_name] = value
         return fields
 
     def is_valid(self):
@@ -205,7 +203,6 @@ class ClientsInterestsRequest(Request):
     def get_interests(self, store):
         return {c: scoring.get_interests(store, c) for c in self.client_ids}
 
-    @property
     def nclients(self):
         return {'nclients': len(self.request['client_ids'])}
 
@@ -258,7 +255,6 @@ class MethodRequest(Request):
     def is_admin(self):
         return self.login == ADMIN_LOGIN
 
-    @property
     def is_token_valid(self):
         if not check_auth(self):
             self.errors.append('Token is invalid')
@@ -275,15 +271,18 @@ def check_auth(request):
         return True
     return False
 
-def online_scoring_handler(sr,ctx,store,is_admin=False):
+
+def online_scoring_handler(sr, ctx, store, is_admin=False):
     ctx.update(sr.has)
     if is_admin:
         return {'score': 42}, OK
     return {'score': sr.score(store)}, OK
 
-def clients_interests_handler(sr,ctx,store):
-    ctx.update(sr.nclients)
+
+def clients_interests_handler(sr, ctx, store):
+    ctx.update(sr.nclients())
     return sr.get_interests(store), OK
+
 
 def scoring_handler(request, ctx, store):
     method, arguments = request.request['method'], request.request['arguments']
@@ -312,7 +311,7 @@ def method_handler(request, ctx, store):
     elif not mr.is_valid():
         response, code = mr.errors, INVALID_REQUEST
         logging.error('%s - %s' % (code, response))
-    elif not mr.is_token_valid:
+    elif not mr.is_token_valid():
         response, code = mr.errors, FORBIDDEN
         logging.error('%s - %s' % (code, response))
     else:
