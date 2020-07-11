@@ -93,11 +93,10 @@ class ArgumentsField(Field):
 
 class EmailField(CharField):
     def validate(self):
-        if not self.is_empty:
-            if '@' not in str(self.value):
-                msg = 'Value for field \'%s\' must be an email string, received \'%s\' instead' % (
-                    self.name, self.value)
-                raise ValidationError(msg)
+        if not self.is_empty and '@' not in str(self.value):
+            msg = 'Value for field \'%s\' must be an email string, received \'%s\' instead' % (
+                self.name, self.value)
+            raise ValidationError(msg)
 
 
 class PhoneField(CharField):
@@ -276,6 +275,15 @@ def check_auth(request):
         return True
     return False
 
+def online_scoring_handler(sr,ctx,store,is_admin=False):
+    ctx.update(sr.has)
+    if is_admin:
+        return {'score': 42}, OK
+    return {'score': sr.score(store)}, OK
+
+def clients_interests_handler(sr,ctx,store):
+    ctx.update(sr.nclients)
+    return sr.get_interests(store), OK
 
 def scoring_handler(request, ctx, store):
     method, arguments = request.request['method'], request.request['arguments']
@@ -285,14 +293,10 @@ def scoring_handler(request, ctx, store):
     sr.read_arguments(arguments)
     if sr.is_valid() and not sr.is_empty:
         if method == 'online_score':
-            ctx.update(sr.has)
-            if request.is_admin:
-                return {'score': 42}, OK
-            return {'score': sr.score(store)}, OK
-
+            return online_scoring_handler(sr, ctx, store, is_admin=request.is_admin)
         elif method == 'clients_interests':
-            ctx.update(sr.nclients)
-            return sr.get_interests(store), OK
+            return clients_interests_handler(sr, ctx, store)
+
     logging.error('%s - %s' % (INVALID_REQUEST, sr.errors))
     return sr.errors, INVALID_REQUEST
 

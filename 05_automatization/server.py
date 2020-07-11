@@ -4,7 +4,7 @@ import config
 import logging
 import threading
 import multiprocessing as mp
-from http_parser import HTTP_parser as hp
+from http_parser import HTTP_Request, HTTP_Response
 
 
 
@@ -32,27 +32,27 @@ class HTTPServer(object):
 
     def handle(self, client_socket, client_address):
         print('Handling')
-        r = self.receive(client_socket)
-        status = r.split('\n')[0]
-        logging.info(f'Request from {client_address[0]}:{client_address[1]} - {status}')
-
-        client_socket.sendall(f'Got your: {r}'.encode('utf-8'))
+        request = HTTP_Request(self.receive(client_socket), self.document_root)
+        logging.info(f'Request from {client_address[0]}:{client_address[1]} - {request.method}')
+        response = HTTP_Response(request)
+        if request.method == 'GET':
+            response.set_headers()
+        client_socket.sendall(response.response_start_line.encode('utf-8'))
         client_socket.close()
 
     def receive(self, client_socket):
         print('Receiving')
         data = ''
-        i=1
         while True:
             batch = client_socket.recv(self.batch_size)
-            print(len(batch))
-            print(i, len(batch), print(batch.decode('utf-8')), batch is None)
-            i+=1
-            if batch is not None:
+            data += batch.decode('utf-8')
+            #print(f'data: {data}')
+            if '\r\n' in data:
                 break
-            #if data[::-1][0] == '\r\n' and data[::-1][1] == '\r\n':
+            #if not batch:
             #    break
-        return ''.join(data)
+
+        return data
 
     def listen(self):
         print('Listening')
