@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument('--port', dest='port', default=config.PORT)
     parser.add_argument('-w', dest='workers', default=config.WORKERS)
     parser.add_argument('-c', dest='max_connections', default=config.MAX_CONNECTIONS)
-    parser.add_argument('-d', dest='document_root', default=config.DOCUMENT_ROOT)
+    parser.add_argument('-r', dest='document_root', default=config.DOCUMENT_ROOT)
     parser.add_argument('--log', dest='log', default=config.LOG)
     return parser.parse_args()
 
