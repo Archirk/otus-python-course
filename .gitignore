@@ -12,4 +12,4 @@ venv/
 *.pdf
 *.txt
 *.log
-*/__idea__
+*/.idea/
