@@ -1,88 +1,113 @@
 import responses
 from datetime import datetime
 import mimetypes
+import re
+from urllib.parse import unquote
+from os import path
 
 class HTTP_Request(object):
     def __init__(self, request, document_root):
         self.request = request
         self.root = document_root
+        self.available_methods = {'GET', 'HEAD'}
         self.method = None
         self.uri = None
+        self.uri_path = None
         self.protocol = None
         self.headers = {}
         self.body = None
+        self.response_code = None
+        self.parse_request()
+        self.normalize_uri()
+
+    def parse_start_line(self):
+        starting_line = self.request.split('\r\n')[0]
+        print(f'uri: {self.uri}')
+        self.method, self.uri, self.protocol = starting_line.split(' ')[0:3]
+
+    def parse_headers(self):
+        another_lines = self.request.split('\r\n')[1:]
+        self.sep_index = 0
+        j = 0
+        for i in another_lines:
+            if i == '':
+                self.sep_index = j
+                break
+            header = i.split(': ')[0]
+            value = ''.join(i.split(': ')[1:])
+            self.headers[header] = value
+            j += 1
+
+    def parse_body(self):
+        self.body = ''.join(self.request.split('\r\n')[1:][self.sep_index + 1:])
+
+    def parse_request(self):
         self.parse_start_line()
         self.parse_headers()
         self.parse_body()
-        print(f'Starting line:\n{self.method} {self.uri} {self.protocol}')
-        print(f'Headers:\n{self.headers}')
-        print(f'Body:\n{self.body}')
 
-    def parse_start_line(self):
-        try:
-            starting_line = self.request.split('\r\n')[0]
-            self.method, self.uri, self.protocol = starting_line.split(' ')[0:3]
-        except Exception as e:
-            raise RuntimeError(f'Unable to parse starting line: {e}')
+    def normalize_uri(self):
+        self.uri = self.uri.split('?')[0].split('#')[0]
+        pat = r'^\/[\/\.a-zA-Z0-9\-\_\%]+$'
+        if re.match(pat, self.uri):
+            self.uri_path = self.root + unquote(self.uri)
+            if self.uri.endswith('/'):
+                self.uri_path += 'index.html'
+        else:
+            self.response_code = responses.NOT_FOUND
 
-
-    def parse_headers(self):
-        try:
-            another_lines = self.request.split('\r\n')[1:]
-            self.sep_index = 0
-            j = 0
-            for i in another_lines:
-                if i == '':
-                    self.sep_index = j
-                    break
-                header = i.split(': ')[0]
-                value = ''.join(i.split(': ')[1:])
-                self.headers[header] = value
-                j += 1
-        except Exception as e:
-            raise RuntimeError(f'Unable to parse headers: {e}')
+    def validate_method(self):
+        if self.method not in self.available_methods:
+            self.response_code = responses.METHOD_NOT_ALLOWED
+        else:
+            self.response_code = responses.OK
 
     def validate_uri(self):
-        pass
-
-
-    def parse_body(self):
-        try:
-            self.body = ''.join(self.request.split('\r\n')[1:][self.sep_index + 1:])
-        except Exception as e:
-            raise RuntimeError(f'Unable to parse request body: {e}')
+        if '../' in self.uri:
+            self.response_code = responses.FORBIDDEN
+        elif self.uri_path is None:
+            self.response_code = responses.NOT_FOUND
+        elif not path.isfile(self.uri_path):
+            self.response_code = responses.NOT_FOUND
 
 
 class HTTP_Response(object):
     def __init__(self, request):
         self.request = request
-        self.available_methods = {'GET', 'HEAD'}
-        self.validate_method()
-        self.code = None
-        self.headers = None
-        self.body = self.generate_body()
-        self.response_start_line = f'{self.request.protocol} {self.code}'
+        self.protocol = self.request.protocol
 
-    def validate_method(self):
-        if self.request.method not in self.available_methods:
-            self.code = responses.INVALID_METHOD
-        else:
-            self.code = responses.OK
+        self.code = self.request.response_code
+        self.status_line = None
+        self.headers = None
+        self.body = b''
+
+    def __str__(self):
+        return self.generate_response()
+
+    def set_status_line(self):
+        self.status_line = f'{self.protocol} {self.code} {responses.MSG[self.code]}'
 
     def set_headers(self):
-        self.headers = {'Date': datetime.strftime(datetime.today(), '%a, %b %Y %H:%M:%S %Z'),
+        headers = {'Date': datetime.strftime(datetime.today(), '%a, %b %Y %H:%M:%S %Z'),
                         'Server': 'OTUS_ChirkovServer',
-                        'Connection': 'keep-alive',
-                        'Content-Type': mimetypes.guess_type(self.request.uri)[0],
-                        'Content-Length': len(self.body),
+                        'Connection': 'close',
                         }
+        if self.code == 200:
+            headers['Content-Type'] = mimetypes.guess_type(self.request.uri_path)[0]
+            headers['Content-Length'] = len(self.body)
+        self.headers = '\r\n'.join([f'{k}: {v}' for k, v in headers.items()])
 
     def generate_body(self):
-        if self.code == responses.OK and self.request.method == 'GET':
-            with open(self.request.uri, 'rb') as f:
+        if self.code == responses.OK:
+            with open(self.request.uri_path, 'rb') as f:
                 return f.read()
-        else:
-            return ''
 
+    def set_body(self):
+        self.body = b''
+        if self.code == responses.OK:
+            with open(self.request.uri_path, 'rb') as f:
+                self.body = f.read()
 
-
+    def generate_response(self):
+        r = f'{self.status_line}\r\n{self.headers}\r\n\r\n'.encode(encoding='utf-8')
+        return r + self.body
