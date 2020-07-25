@@ -21,6 +21,10 @@ ab -n 50000 -с 100 -r http://localhost:8080/httptest/dir2/
 ```
 ##### Результаты тестирования
 ```
+This is ApacheBench, Version 2.3 <$Revision: 1807734 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
 Benchmarking localhost (be patient)
 Completed 5000 requests
 Completed 10000 requests
@@ -39,35 +43,36 @@ Server Software:        OTUS_ChirkovServer
 Server Hostname:        localhost
 Server Port:            8080
 
-Document Path:          /httptest/dir2/
-Document Length:        34 bytes
+Document Path:          /httptest/dir2
+Document Length:        0 bytes
 
 Concurrency Level:      100
-Time taken for tests:   4.158 seconds
+Time taken for tests:   6.125 seconds
 Complete requests:      50000
 Failed requests:        0
-Total transferred:      8800000 bytes
-HTML transferred:       1700000 bytes
-Requests per second:    12024.43 [#/sec] (mean)
-Time per request:       8.316 [ms] (mean)
-Time per request:       0.083 [ms] (mean, across all concurrent requests)
-Transfer rate:          2066.70 [Kbytes/sec] received
+Non-2xx responses:      50000
+Total transferred:      5200000 bytes
+HTML transferred:       0 bytes
+Requests per second:    8162.72 [#/sec] (mean)
+Time per request:       12.251 [ms] (mean)
+Time per request:       0.123 [ms] (mean, across all concurrent requests)
+Transfer rate:          829.03 [Kbytes/sec] received
 
 Connection Times (ms)
               min  mean[+/-sd] median   max
-Connect:        0    0   0.2      0       6
-Processing:     1    8   1.1      8      22
-Waiting:        1    8   1.1      8      22
-Total:          2    8   1.1      8      22
+Connect:        0    0   6.5      0    1024
+Processing:     1   12   3.7     11      41
+Waiting:        1   12   3.7     11      41
+Total:          2   12   7.4     11    1033
 
 Percentage of the requests served within a certain time (ms)
-  50%      8
-  66%      8
-  75%      9
-  80%      9
-  90%     10
-  95%     10
-  98%     11
-  99%     12
- 100%     22 (longest request)
+  50%     11
+  66%     12
+  75%     13
+  80%     14
+  90%     17
+  95%     20
+  98%     23
+  99%     25
+ 100%   1033 (longest request)
 ```
