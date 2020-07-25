@@ -4,6 +4,7 @@ import mimetypes
 import re
 from urllib.parse import unquote
 from os import path
+from pathlib import Path
 
 class HTTP_Request(object):
     def __init__(self, request, document_root):
@@ -22,7 +23,6 @@ class HTTP_Request(object):
 
     def parse_start_line(self):
         starting_line = self.request.split('\r\n')[0]
-        print(f'uri: {self.uri}')
         self.method, self.uri, self.protocol = starting_line.split(' ')[0:3]
 
     def parse_headers(self):
@@ -50,9 +50,9 @@ class HTTP_Request(object):
         self.uri = self.uri.split('?')[0].split('#')[0]
         pat = r'^\/[\/\.a-zA-Z0-9\-\_\%]+$'
         if re.match(pat, self.uri):
-            self.uri_path = self.root + unquote(self.uri)
+            self.uri_path = path.realpath(self.root + unquote(self.uri))
             if self.uri.endswith('/'):
-                self.uri_path += 'index.html'
+                self.uri_path += '/index.html'
         else:
             self.response_code = responses.NOT_FOUND
 
@@ -63,12 +63,13 @@ class HTTP_Request(object):
             self.response_code = responses.OK
 
     def validate_uri(self):
-        if '../' in self.uri:
-            self.response_code = responses.FORBIDDEN
-        elif self.uri_path is None:
+        root, uri = Path(self.root), Path(self.uri_path)
+        if self.uri_path is None:
             self.response_code = responses.NOT_FOUND
         elif not path.isfile(self.uri_path):
             self.response_code = responses.NOT_FOUND
+        elif root not in uri.parents:
+            self.response_code = responses.FORBIDDEN
 
 
 class HTTP_Response(object):
@@ -80,6 +81,7 @@ class HTTP_Response(object):
         self.status_line = None
         self.headers = None
         self.body = b''
+        self.content_length = 0
 
     def __str__(self):
         return self.generate_response()
@@ -94,7 +96,7 @@ class HTTP_Response(object):
                         }
         if self.code == 200:
             headers['Content-Type'] = mimetypes.guess_type(self.request.uri_path)[0]
-            headers['Content-Length'] = len(self.body)
+            headers['Content-Length'] = self.content_length
         self.headers = '\r\n'.join([f'{k}: {v}' for k, v in headers.items()])
 
     def generate_body(self):
@@ -102,11 +104,15 @@ class HTTP_Response(object):
             with open(self.request.uri_path, 'rb') as f:
                 return f.read()
 
+    def set_content_length(self):
+        self.content_length = path.getsize(self.request.uri_path)
+
     def set_body(self):
         self.body = b''
         if self.code == responses.OK:
             with open(self.request.uri_path, 'rb') as f:
                 self.body = f.read()
+                self.content_length = len(self.body)
 
     def generate_response(self):
         r = f'{self.status_line}\r\n{self.headers}\r\n\r\n'.encode(encoding='utf-8')

@@ -34,22 +34,26 @@ class HTTPServer(object):
         request.validate_uri()
         logging.info(f'Request from {client_address[0]}:{client_address[1]} - {request.method}')
         response = HTTP_Response(request)
-        response.set_body()
+        if request.method == 'GET':
+            response.set_body()
+        else:
+            response.set_content_length()
         response.set_headers()
         response.set_status_line()
-        if request.method != 'GET':
-            response.body = b''
         response = response.generate_response()
         client_socket.sendall(response)
         client_socket.close()
 
     def receive(self, client_socket):
         data = ''
-        while True:
-            batch = client_socket.recv(self.batch_size)
-            data += batch.decode('utf-8')
-            if '\r\n\r\n' in data:
-                break
+        try:
+            while True:
+                batch = client_socket.recv(self.batch_size)
+                data += batch.decode('utf-8')
+                if '\r\n\r\n' in data:
+                    break
+        except ConnectionError as e:
+            logging.error(f'Lost connection: {e}')
         return data
 
     def listen(self):

@@ -4,6 +4,8 @@ venv/
 01_log_analyzer/testing.py
 01_log_analyzer/reports/
 03_score_api/03_oop/
+04_testing/04testing/
+04_testing/testing.py
 03_score_api/testing.py
 05_automatization/05_automatization
 05_automatization/http-test-suite-master
