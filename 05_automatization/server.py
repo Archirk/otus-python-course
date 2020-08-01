@@ -41,19 +41,23 @@ class HTTPServer(object):
         response.set_headers()
         response.set_status_line()
         response = response.generate_response()
-        client_socket.sendall(response)
-        client_socket.close()
+        try:
+            client_socket.sendall(response)
+        except ConnectionError as e:
+            logging.error(f'Unable to send response: {e}')
+        finally:
+            client_socket.close()
 
     def receive(self, client_socket):
         data = ''
-        try:
-            while True:
-                batch = client_socket.recv(self.batch_size)
-                data += batch.decode('utf-8')
-                if '\r\n\r\n' in data:
-                    break
-        except ConnectionError as e:
-            logging.error(f'Lost connection: {e}')
+        while True:
+            batch = client_socket.recv(self.batch_size)
+            if batch == b'':
+                logging.error(f'Socket connection broken')
+                break
+            data += batch.decode('utf-8')
+            if '\r\n\r\n' in data:
+                break
         return data
 
     def listen(self):

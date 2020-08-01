@@ -1,6 +1,6 @@
 HOST = 'localhost'
 PORT = 8080
 DOCUMENT_ROOT = '.'
-WORKERS = 1
+WORKERS = 6
 LOG = None
 MAX_CONNECTIONS = 100

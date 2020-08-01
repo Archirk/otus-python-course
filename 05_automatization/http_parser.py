@@ -63,7 +63,8 @@ class HTTP_Request(object):
             self.response_code = responses.OK
 
     def validate_uri(self):
-        root, uri = Path(self.root), Path(self.uri_path)
+        root = Path.cwd() if self.root == '.' else Path(self.root)
+        uri = Path(self.uri_path)
         if self.uri_path is None:
             self.response_code = responses.NOT_FOUND
         elif not path.isfile(self.uri_path):
