@@ -1,18 +1,7 @@
 import unittest
-import functools
+from tests.cases import cases, run_test
 import api
 from validation_error import ValidationError
-
-
-def cases(cases):
-    def decorator(f):
-        @functools.wraps(f)
-        def wrapper(*args):
-            for c in cases:
-                new_args = args + (c if isinstance(c, tuple) else (c,))
-                f(*new_args)
-        return wrapper
-    return decorator
 
 
 class TestField(unittest.TestCase):
@@ -24,7 +13,6 @@ class TestField(unittest.TestCase):
     def test_valid_combinations(self, arguments):
         """ Test parent's field required and nullable VALID combinations """
         r, n, v = arguments['required'], arguments['nullable'], arguments['value']
-        # Must not rise ValidationError
         api.Field(required=r, nullable=n, value=v).check_requirements()
 
     @cases([{'required': True, 'nullable': False, 'value': None},
@@ -37,18 +25,20 @@ class TestField(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api.Field(required=r, nullable=n, value=v).check_requirements()
 
+
 class TestCharField(unittest.TestCase):
-    @cases(['', 'Text', 1, -2, 0.1, 1/3])
+    @cases(['', 'Text', 1, -2, 0.1, 1 / 3])
     def test_valid_value(self, val):
         """ Test CharField VALID values """
         api.CharField(required=False, nullable=True, value=val).validate()
 
-    @cases([1, -1, 0.1, 1/3])
+    @cases([1, -1, 0.1, 1 / 3])
     def test_invalid_value(self, v):
         """ Test CharField INVALID values """
         with self.assertRaises(ValidationError):
             api.CharField(required=False, nullable=True, value=v, name='first_name').validate()
             api.CharField(required=False, nullable=True, value=v, name='last_name').validate()
+
 
 class TestArgumentsField(unittest.TestCase):
     @cases([{}, [], {'key': 'val'}, [1, 2]])
@@ -56,11 +46,13 @@ class TestArgumentsField(unittest.TestCase):
         """ Test ArgumentsField VALID values """
         api.ArgumentsField(required=False, nullable=True, value=val).check_type()
 
-    @cases(['', True, 1, 1/3, -1])
+    @cases(['', True, 1, 1 / 3, -1])
     def test_invalid_value(self, val):
         """ Test ArgumentsField INVALID values """
         with self.assertRaises(ValidationError):
             api.ArgumentsField(required=False, nullable=True, value=val).check_type()
+
+
 class TestEmailField(unittest.TestCase):
     @cases(['otus@yandex.ru'])
     def test_valid_value(self, val):
@@ -73,8 +65,9 @@ class TestEmailField(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api.EmailField(required=False, nullable=True, value=val).validate()
 
+
 class TestPhoneField(unittest.TestCase):
-    @cases(['79161234567', 79161234567])
+    @cases(['79161234567', 79161234567, '', None])
     def test_valid_value(self, val):
         """ Test PhoneField VALID values """
         api.PhoneField(required=False, nullable=True, value=val).validate()
@@ -89,6 +82,7 @@ class TestPhoneField(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api.PhoneField(required=False, nullable=True, value=val).validate()
 
+
 class TestDateField(unittest.TestCase):
     @cases(['15.05.1993'])
     def test_valid_value(self, val):
@@ -102,6 +96,7 @@ class TestDateField(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api.DateField(required=False, nullable=True, value=val).validate()
 
+
 class TestBirthDayField(unittest.TestCase):
     @cases(['15.05.1993'])
     def test_valid_value(self, val):
@@ -114,6 +109,7 @@ class TestBirthDayField(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api.BirthDayField(required=False, nullable=True, value=val).validate()
 
+
 class TestGenderField(unittest.TestCase):
     @cases([0, 1, 2])
     def test_valid_value(self, val):
@@ -125,6 +121,7 @@ class TestGenderField(unittest.TestCase):
         """ Test GenderField INVALID values """
         with self.assertRaises(ValidationError):
             api.GenderField(required=False, nullable=True, value=val).validate()
+
 
 class ClientIDsField(unittest.TestCase):
     @cases([[0, 1], [1]])
@@ -139,22 +136,8 @@ class ClientIDsField(unittest.TestCase):
             api.ClientIDsField(required=False, nullable=True, value=val).validate()
 
 
+TEST_CASES = [TestField, TestCharField, TestArgumentsField, TestEmailField, TestPhoneField, TestDateField,
+              TestBirthDayField, TestGenderField, ClientIDsField]
+
 if __name__ == "__main__":
-    class NewResult(unittest.TextTestResult):
-        def getDescription(self, test):
-            doc_first_line = test.shortDescription()
-            return doc_first_line or ""
-
-    class NewRunner(unittest.TextTestRunner):
-        resultclass = NewResult
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-
-    field_tests = [TestField, TestCharField, TestArgumentsField, TestEmailField,
-                   TestPhoneField, TestDateField, TestBirthDayField, TestGenderField,
-                   ClientIDsField]
-    for t in field_tests:
-        case = loader.loadTestsFromTestCase(t)
-        suite.addTest(case)
-    runner = NewRunner(verbosity=2)
-    runner.run(suite)
+    run_test(TEST_CASES)
