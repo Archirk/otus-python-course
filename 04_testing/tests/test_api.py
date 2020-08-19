@@ -109,9 +109,10 @@ class TestValidRequests(unittest.TestCase):
         PORT = 15377
         TIMEOUT = 2
         DB = 0
+        MAX_RETRIES = 3
         self.context = {}
         self.headers = {}
-        self.store = Store(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT)
+        self.store = Store(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)
         self.c_int = {0: ['interest_c0'], 1: ['interest_c1'], 2: ['interest_c2'], 3: ['interest_c3'], }
         self.store.cache_set('i:0', '[\"interest_c0\"]', 20)
         self.store.cache_set('i:1', '[\"interest_c1\"]', 20)
