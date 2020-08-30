@@ -16,3 +16,5 @@ venv/
 *.log
 */.idea/
 10_NumPyRegressor/
+11_pandas/
+07_django_project/

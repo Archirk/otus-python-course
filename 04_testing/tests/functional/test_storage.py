@@ -1,9 +1,10 @@
 import unittest
-from mock import MagicMock, patch
+from mock import patch
+from mockredis import mock_redis_client
 import store
 
-HOST = 'redis-15377.c82.us-east-1-2.ec2.cloud.redislabs.com'
-PASSWORD = 'Z0mu2Jk5ngtOpeXdtev9GpIOuF3GJzL1'
+HOST = 'host'
+PASSWORD = 'password'
 PORT = 15377
 TIMEOUT = 2
 MAX_RETRIES = 3
@@ -11,6 +12,7 @@ DB = 0
 
 class TestSuite(unittest.TestCase):
 
+    @patch('redis.Redis', mock_redis_client)
     def setUp(self):
         self.store = store.Store(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)
         self.mock_store = store.MockStore(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)

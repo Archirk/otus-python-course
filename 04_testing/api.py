@@ -7,6 +7,7 @@ import datetime
 import logging
 import hashlib
 import uuid
+import re
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from validation_error import ValidationError
@@ -81,6 +82,10 @@ class CharField(Field):
     def check_type(self):
         accepted = (str, int, float)
         if self.name in ('first_name', 'last_name'):
+            regex = re.compile('[@_!#$%^&*()<>?/|}{~:;.,+=№\]\[0123456789]')
+            if regex.search(str(self.value)):
+                msg = 'Value for field \'%s\' should contain only letters' % self.name
+                raise ValidationError(msg)
             accepted = (str,)
         if not isinstance(self.value, accepted) and self.value is not None:
             msg = 'Value for field \'%s\' has wrong type' % self.name
@@ -102,6 +107,7 @@ class EmailField(CharField):
             msg = 'Value for field \'%s\' must be an email string, received \'%s\' instead' % (
                 self.name, self.value)
             raise ValidationError(msg)
+
 
 
 class PhoneField(CharField):
@@ -138,6 +144,7 @@ class BirthDayField(DateField):
             bday, bmonth, byear = map(int, birth_date.split('.'))
             day, month, year = map(int, today_date.split('.'))
             msg = 'Your age must be equal or below %s' % age_limit
+            msg2 = 'Your birth date is incorrect'
             if year - byear > age_limit:
                 raise ValidationError(msg)
             elif year - byear == 70:
@@ -146,7 +153,14 @@ class BirthDayField(DateField):
                 elif bmonth == month:
                     if bday > day:
                         raise ValidationError(msg)
-
+            elif byear > year:
+                raise ValidationError(msg2)
+            elif byear == year:
+                if bmonth > month:
+                    raise ValidationError(msg2)
+                if bmonth == month:
+                    if bday > day:
+                        raise ValidationError(msg2)
 
 class GenderField(CharField):
     def validate(self):

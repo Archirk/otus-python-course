@@ -2,7 +2,6 @@ import unittest
 import hashlib
 import datetime
 from store import Store
-
 import api
 from tests.cases import cases
 
@@ -176,5 +175,3 @@ class TestValidRequests(unittest.TestCase):
 
 
 TEST_CASES = [TestInvalidRequests, TestValidRequests]
-if __name__ == "__main__":
-    unittest.main()

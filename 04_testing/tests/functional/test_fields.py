@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import unittest
-from tests.cases import cases, run_test
+from tests.cases import cases
 import api
 from validation_error import ValidationError
 
@@ -27,17 +29,17 @@ class TestField(unittest.TestCase):
 
 
 class TestCharField(unittest.TestCase):
-    @cases(['', 'Text', 1, -2, 0.1, 1 / 3])
+    @cases(['', 'Text', 1, -2, 0.1, 1 / 3, 'Тест', '/test', '!@#$%^&*()_+=\\', '\\test'])
     def test_valid_value(self, val):
         """ Test CharField VALID values """
         api.CharField(required=False, nullable=True, value=val).validate()
 
-    @cases([1, -1, 0.1, 1 / 3])
-    def test_invalid_value(self, v):
+    @cases([1, -1, 0.1, 1 / 3, 'Artem1', 'Artem1505', 'Артём!'])
+    def test_invalid_value(self, val):
         """ Test CharField INVALID values """
         with self.assertRaises(ValidationError):
-            api.CharField(required=False, nullable=True, value=v, name='first_name').validate()
-            api.CharField(required=False, nullable=True, value=v, name='last_name').validate()
+            api.CharField(required=False, nullable=True, value=val, name='first_name').validate()
+            api.CharField(required=False, nullable=True, value=val, name='last_name').validate()
 
 
 class TestArgumentsField(unittest.TestCase):
@@ -54,7 +56,7 @@ class TestArgumentsField(unittest.TestCase):
 
 
 class TestEmailField(unittest.TestCase):
-    @cases(['otus@yandex.ru'])
+    @cases(['otus@yandex.ru', "o.tus@yandex.ru"])
     def test_valid_value(self, val):
         """ Test EmailField VALID values """
         api.EmailField(required=False, nullable=True, value=val).validate()
@@ -103,7 +105,7 @@ class TestBirthDayField(unittest.TestCase):
         """ Test BirthDayField VALID values """
         api.BirthDayField(required=False, nullable=True, value=val).validate()
 
-    @cases(['15.05.1923'])
+    @cases(['15.05.1923','15.05.2023'])
     def test_invalid_value(self, val):
         """ Test BirthDayField INVALID values """
         with self.assertRaises(ValidationError):
@@ -139,5 +141,3 @@ class ClientIDsField(unittest.TestCase):
 TEST_CASES = [TestField, TestCharField, TestArgumentsField, TestEmailField, TestPhoneField, TestDateField,
               TestBirthDayField, TestGenderField, ClientIDsField]
 
-if __name__ == "__main__":
-    run_test(TEST_CASES)

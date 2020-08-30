@@ -4,14 +4,6 @@ import logging
 from mock import MagicMock
 
 
-HOST = 'redis-15377.c82.us-east-1-2.ec2.cloud.redislabs.com'
-PASSWORD = 'Z0mu2Jk5ngtOpeXdtev9GpIOuF3GJzL1'
-PORT = 15377
-TIMEOUT = 2
-MAX_RETRIES = 5
-DB = 0
-
-
 class Store(object):
     def __init__(self, host, port, password, db, timeout, max_retries):
         self.host = host
@@ -88,5 +80,3 @@ class MockStore(Store):
     def get(self, key):
         return self.r.get(key)
 
-if __name__ == '__main__':
-    s = Store(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)
