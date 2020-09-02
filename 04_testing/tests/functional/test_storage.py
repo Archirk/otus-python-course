@@ -1,5 +1,5 @@
 import unittest
-from mock import patch
+from mock import patch, MagicMock
 from mockredis import mock_redis_client
 import store
 
@@ -15,7 +15,6 @@ class TestSuite(unittest.TestCase):
     @patch('redis.Redis', mock_redis_client)
     def setUp(self):
         self.store = store.Store(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)
-        self.mock_store = store.MockStore(host=HOST, port=PORT, password=PASSWORD, db=DB, timeout=TIMEOUT, max_retries=MAX_RETRIES)
         self.redis = self.store.r
         self.redis.set('TestKey', 'TestValue')
 
@@ -41,8 +40,9 @@ class TestSuite(unittest.TestCase):
 
     def test_connection_error(self):
         """ Test connection error """
-        self.assertEqual(self.mock_store.get('TestKey'), None)
-        self.assertEqual(self.mock_store.attempts, MAX_RETRIES)
+        self.store.r.get = MagicMock(side_effect=Exception('ConnectionError'))  # No ConnectionError in 2.7
+        self.assertEqual(self.store.get('TestKey'), None)
+        self.assertEqual(self.store.attempts, MAX_RETRIES)
 
 
 TEST_CASES = [TestSuite]
